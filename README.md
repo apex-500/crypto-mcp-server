@@ -16,8 +16,11 @@ Ask your AI assistant things like:
 - *"Get me a swap quote for 1 ETH to USDC"*
 - *"What's the gas price on Arbitrum?"*
 - *"Show me trending tokens right now"*
+- *"Deposit 1000 USDC into Aave on Arbitrum"*
+- *"Auto-optimize my USDC yield across chains"*
+- *"Show my DeFi positions on Aave V3"*
 
-## Tools (13 total)
+## Tools (23 total)
 
 | Category | Tool | Description |
 |----------|------|-------------|
@@ -34,6 +37,16 @@ Ask your AI assistant things like:
 | | `whale_transactions` | Large transaction / whale activity tracking |
 | **Swap** | `swap_quote` | Best swap quote across DEX aggregators |
 | | `swap_compare` | Compare rates across multiple DEXes |
+| **Actions** | `swap_execute` | Execute token swaps via ParaSwap |
+| | `token_transfer` | Send ETH or ERC-20 tokens |
+| | `token_approve` | Approve token spending for contracts |
+| | `wrap_eth` | Wrap/unwrap ETH to WETH |
+| **Portfolio** | `portfolio_summary` | Cross-chain portfolio overview |
+| | `portfolio_history` | Historical portfolio tracking |
+| **DeFi Mgmt** | `defi_deposit` | Deposit tokens into Aave V3 for yield |
+| | `defi_withdraw` | Withdraw tokens from Aave V3 |
+| | `defi_positions` | Check Aave V3 positions (collateral, debt, health) |
+| | `auto_yield` | Auto-optimize yield across protocols |
 
 ## Supported Chains
 
@@ -53,6 +66,12 @@ Or install from source:
 git clone https://github.com/kms-kr/crypto-mcp-server.git
 cd crypto-mcp-server
 pip install -e .
+```
+
+For on-chain actions and DeFi management, install with web3 support:
+
+```bash
+pip install 'crypto-mcp-server[web3]'
 ```
 
 ### Claude Desktop
@@ -91,6 +110,68 @@ async def main():
 asyncio.run(main())
 ```
 
+## Operator Setup (Revenue & Auth)
+
+### Environment Variables
+
+The server is configurable via environment variables. All are optional for basic usage.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `WALLET_PRIVATE_KEY` | Private key for signing transactions (required for actions/DeFi) | - |
+| `FEE_WALLET` | Operator wallet address that receives fees | - |
+| `FEE_BPS` | Fee in basis points (10 = 0.1%) | `10` |
+| `MAX_TX_VALUE_USD` | Maximum single transaction value in USD | `10000` |
+| `REQUIRE_AUTH` | Set to `true` to enforce API key authentication | `false` |
+| `API_KEYS` | Comma-separated list of valid paid-tier API keys | - |
+
+### Revenue / Fee Structure
+
+When `FEE_WALLET` is set, the server collects a small fee on revenue-generating operations:
+
+- **Swap execution** (`swap_execute`): Fee is deducted from the input amount before the swap.
+- **DeFi deposits** (`defi_deposit`, `auto_yield`): Fee is deducted before depositing into the protocol.
+- **Default fee**: 0.1% (10 basis points). Configurable via `FEE_BPS`.
+- **Fee collection**: Fees are sent on-chain to `FEE_WALLET` as a separate transaction.
+- **Fee tracking**: In-memory stats available via the `FeeManager.get_fee_stats()` API.
+
+Example operator setup:
+
+```bash
+export FEE_WALLET="0xYourWalletAddress"
+export FEE_BPS=10          # 0.1% fee
+export WALLET_PRIVATE_KEY="0x..."
+```
+
+### Authentication & Rate Limiting
+
+When `REQUIRE_AUTH=true`, the server enforces tiered rate limits:
+
+| Tier | API Key Required | Daily Limit |
+|------|-----------------|-------------|
+| **Free** | No | 100 calls/day |
+| **Paid** | Yes | 10,000 calls/day |
+
+To set up paid-tier keys:
+
+```bash
+export REQUIRE_AUTH=true
+export API_KEYS="key1-abc-123,key2-def-456,key3-ghi-789"
+```
+
+Callers pass `api_key` in their tool arguments to authenticate. When auth is not required (default), all tools work without a key and usage is still tracked.
+
+### DeFi Management Tools
+
+The DeFi management tools interact with **Aave V3** on supported chains:
+
+- **`defi_deposit`**: Approves and supplies tokens to Aave V3. Earns lending yield automatically.
+- **`defi_withdraw`**: Withdraws supplied tokens. Use `amount: -1` for max withdrawal.
+- **`defi_positions`**: Read-only query of collateral, debt, health factor, and liquidation threshold.
+- **`auto_yield`**: The killer feature -- queries all DeFi protocols for the best APY, compares with current positions, and automatically deposits into Aave V3. If a better yield exists on another protocol, it provides recommendations.
+
+Supported Aave V3 chains: Ethereum, Arbitrum, Base, Polygon.
+
 ## Data Sources
 
 All free, no API keys required:
@@ -99,15 +180,17 @@ All free, no API keys required:
 |--------|------|
 | [CoinGecko](https://www.coingecko.com/) | Prices, token info, trending |
 | [DeFiLlama](https://defillama.com/) | DeFi yields, protocol TVL |
-| [ParaSwap](https://www.paraswap.io/) | DEX swap quotes |
+| [ParaSwap](https://www.paraswap.io/) | DEX swap quotes & execution |
 | [Ankr](https://www.ankr.com/) | Wallet balances |
+| [Aave V3](https://aave.com/) | DeFi deposits, withdrawals, positions |
 | Public RPCs | Gas prices, native balances |
 
 ## Roadmap
 
 - [x] Phase 1: Data & analytics (prices, wallets, DeFi, swap quotes)
-- [ ] Phase 2: On-chain actions (execute swaps, token transfers)
-- [ ] Phase 3: Multi-chain DeFi management (auto-yield, rebalancing)
+- [x] Phase 2: On-chain actions (execute swaps, token transfers, approvals)
+- [x] Phase 3: Monetization + DeFi management (fees, auth, Aave V3, auto-yield)
+- [ ] Phase 4: Cross-chain bridging, multi-protocol DeFi, advanced strategies
 
 ## License
 

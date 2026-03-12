@@ -8,6 +8,9 @@ Provides tools for:
 - DeFi protocol data (yields, TVL, lending rates)
 - On-chain actions (swap execution, transfers, approvals, wrapping)
 - Portfolio aggregation across chains
+- DeFi management (deposits, withdrawals, positions, auto-yield)
+- Revenue collection via FeeManager
+- API key auth and rate limiting
 """
 import asyncio
 import json
@@ -22,11 +25,18 @@ from .tools.wallet import WalletTool
 from .tools.defi import DeFiTool
 from .tools.onchain import OnChainTool
 from .tools.swap import SwapTool
+from .tools.fee_manager import FeeManager
 from .tools.actions import ActionTool
 from .tools.portfolio import PortfolioTool
+from .tools.defi_actions import DefiActionTool
+from .auth import AuthManager
 
 
 app = Server("crypto-mcp-server")
+
+# Initialize shared components
+fee_manager = FeeManager()
+auth_manager = AuthManager()
 
 # Initialize tool handlers
 price_tool = PriceTool()
@@ -34,8 +44,9 @@ wallet_tool = WalletTool()
 defi_tool = DeFiTool()
 onchain_tool = OnChainTool()
 swap_tool = SwapTool()
-action_tool = ActionTool()
+action_tool = ActionTool(fee_manager=fee_manager)
 portfolio_tool = PortfolioTool(wallet_tool=wallet_tool)
+defi_action_tool = DefiActionTool(fee_manager=fee_manager)
 
 
 TOOLS = [
@@ -438,6 +449,126 @@ TOOLS = [
             "required": ["address"],
         },
     ),
+    # --- DeFi Management Tools (Phase 3: Monetization + DeFi) ---
+    Tool(
+        name="defi_deposit",
+        description=(
+            "Deposit tokens into Aave V3 to earn yield. Automatically approves and supplies tokens. "
+            "A fee (default 0.1%) is deducted before deposit. "
+            "Supported chains: ethereum, arbitrum, base, polygon. "
+            "Requires WALLET_PRIVATE_KEY env var."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string",
+                    "description": "Token to deposit (symbol like 'USDC', 'WETH' or contract address)",
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Amount of token to deposit",
+                },
+                "chain": {
+                    "type": "string",
+                    "description": "Chain: 'ethereum', 'arbitrum', 'base', 'polygon'",
+                    "default": "ethereum",
+                },
+                "fee_bps": {
+                    "type": "integer",
+                    "description": "Fee in basis points (10 = 0.1%). Default from FEE_BPS env or 10",
+                },
+            },
+            "required": ["token", "amount"],
+        },
+    ),
+    Tool(
+        name="defi_withdraw",
+        description=(
+            "Withdraw tokens from Aave V3. Use amount=-1 to withdraw the maximum available. "
+            "Supported chains: ethereum, arbitrum, base, polygon. "
+            "Requires WALLET_PRIVATE_KEY env var."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string",
+                    "description": "Token to withdraw (symbol like 'USDC', 'WETH' or contract address)",
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Amount to withdraw. Use -1 for max withdrawal.",
+                },
+                "chain": {
+                    "type": "string",
+                    "description": "Chain: 'ethereum', 'arbitrum', 'base', 'polygon'",
+                    "default": "ethereum",
+                },
+            },
+            "required": ["token", "amount"],
+        },
+    ),
+    Tool(
+        name="defi_positions",
+        description=(
+            "Check current DeFi positions on Aave V3. Shows total collateral, debt, "
+            "available borrows, health factor, and liquidation threshold. "
+            "If no address is given, uses the configured wallet."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "description": "Wallet address to check (0x...). Optional - defaults to configured wallet.",
+                },
+                "chain": {
+                    "type": "string",
+                    "description": "Chain: 'ethereum', 'arbitrum', 'base', 'polygon'",
+                    "default": "ethereum",
+                },
+            },
+        },
+    ),
+    Tool(
+        name="auto_yield",
+        description=(
+            "Automatically find and deposit into the best yield opportunity for a token. "
+            "Queries all DeFi protocols for the best APY, compares with current position, "
+            "and deposits into Aave V3 (with recommendations if better yields exist elsewhere). "
+            "This is the AI agent's auto-yield optimizer. "
+            "Requires WALLET_PRIVATE_KEY env var."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string",
+                    "description": "Token to optimize yield for (e.g., 'USDC', 'WETH')",
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Amount of token to deposit",
+                },
+                "chain": {
+                    "type": "string",
+                    "description": "Preferred chain: 'ethereum', 'arbitrum', 'base', 'polygon'",
+                    "default": "ethereum",
+                },
+                "min_apy_improvement": {
+                    "type": "number",
+                    "description": "Minimum APY improvement (%) to trigger a move. Default: 0.5",
+                    "default": 0.5,
+                },
+                "fee_bps": {
+                    "type": "integer",
+                    "description": "Fee in basis points (10 = 0.1%). Default from FEE_BPS env or 10",
+                },
+            },
+            "required": ["token", "amount"],
+        },
+    ),
 ]
 
 
@@ -450,6 +581,24 @@ async def list_tools() -> list[Tool]:
 async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """Route tool calls to appropriate handlers."""
     try:
+        # --- Auth check ---
+        api_key = arguments.pop("api_key", None)
+        if auth_manager.require_auth:
+            allowed, tier, remaining = auth_manager.check_auth(api_key)
+            if not allowed:
+                return [TextContent(
+                    type="text",
+                    text=json.dumps({
+                        "error": "Rate limit exceeded",
+                        "tier": tier,
+                        "remaining": 0,
+                        "hint": "Upgrade to paid tier with an API key for higher limits."
+                        if tier == "free" else "Daily limit reached. Try again tomorrow.",
+                    }),
+                )]
+        # Track usage regardless of auth requirement
+        auth_manager.track_usage(api_key)
+
         # Price tools
         if name == "crypto_price":
             result = await price_tool.get_price(
@@ -567,6 +716,34 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 arguments["address"],
                 days=arguments.get("days", 30),
                 chain=arguments.get("chain", "ethereum"),
+            )
+
+        # DeFi management tools (Phase 3)
+        elif name == "defi_deposit":
+            result = await defi_action_tool.defi_deposit(
+                arguments["token"],
+                arguments["amount"],
+                chain=arguments.get("chain", "ethereum"),
+                fee_bps=arguments.get("fee_bps"),
+            )
+        elif name == "defi_withdraw":
+            result = await defi_action_tool.defi_withdraw(
+                arguments["token"],
+                arguments["amount"],
+                chain=arguments.get("chain", "ethereum"),
+            )
+        elif name == "defi_positions":
+            result = await defi_action_tool.defi_positions(
+                address=arguments.get("address"),
+                chain=arguments.get("chain", "ethereum"),
+            )
+        elif name == "auto_yield":
+            result = await defi_action_tool.auto_yield(
+                arguments["token"],
+                arguments["amount"],
+                chain=arguments.get("chain", "ethereum"),
+                min_apy_improvement=arguments.get("min_apy_improvement", 0.5),
+                fee_bps=arguments.get("fee_bps"),
             )
         else:
             result = {"error": f"Unknown tool: {name}"}

@@ -13,6 +13,7 @@ from typing import Dict, Optional
 from decimal import Decimal
 
 from .swap import TOKEN_ADDRESSES, TOKEN_ADDRESSES_ARB
+from .fee_manager import FeeManager
 
 
 # Chain configuration
@@ -110,8 +111,9 @@ def _encode_address(addr: str) -> str:
 
 
 class ActionTool:
-    def __init__(self):
+    def __init__(self, fee_manager: Optional[FeeManager] = None):
         self.client = httpx.AsyncClient(timeout=30)
+        self.fee_manager = fee_manager or FeeManager()
 
     def _get_web3(self, chain: str):
         """Get a web3 instance for the given chain."""
@@ -251,10 +253,9 @@ class ActionTool:
         from_addr = _resolve_token(from_token, chain)
         to_addr = _resolve_token(to_token, chain)
 
-        # Calculate fee
-        actual_fee_bps = fee_bps if fee_bps is not None else _get_fee_bps()
-        fee_amount = amount * actual_fee_bps / 10_000
-        swap_amount = amount - fee_amount
+        # Calculate fee via FeeManager
+        actual_fee_bps = fee_bps if fee_bps is not None else self.fee_manager.default_fee_bps
+        fee_amount, swap_amount = self.fee_manager.calculate_fee(amount, actual_fee_bps)
 
         if swap_amount <= 0:
             return {"error": "Amount too small after fee deduction."}
@@ -355,6 +356,20 @@ class ActionTool:
             to_decimals = _get_decimals(to_addr)
             expected_output = dest_amount / (10 ** to_decimals)
 
+            # Collect fee via FeeManager
+            is_native_from = from_addr.lower() == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+            if fee_amount > 0:
+                if is_native_from:
+                    fee_result = await self.fee_manager.collect_fee_native(
+                        chain, fee_amount, w3=w3, account=account,
+                    )
+                else:
+                    fee_result = await self.fee_manager.collect_fee_erc20(
+                        chain, from_addr, fee_amount, w3=w3, account=account,
+                    )
+            else:
+                fee_result = {"status": "skipped", "reason": "no fee"}
+
             result.update({
                 "action": "swap",
                 "from_token": from_token.upper(),
@@ -367,6 +382,7 @@ class ActionTool:
                 "min_output": round(int(min_dest_amount) / (10 ** to_decimals), 8),
                 "slippage_bps": slippage_bps,
                 "dex": "paraswap",
+                "fee_collection": fee_result.get("status", "skipped"),
             })
             return result
 
