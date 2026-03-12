@@ -6,6 +6,8 @@ Provides tools for:
 - DEX swap quotes & optimal routing
 - On-chain analytics (gas, trending tokens, whale alerts)
 - DeFi protocol data (yields, TVL, lending rates)
+- On-chain actions (swap execution, transfers, approvals, wrapping)
+- Portfolio aggregation across chains
 """
 import asyncio
 import json
@@ -20,6 +22,8 @@ from .tools.wallet import WalletTool
 from .tools.defi import DeFiTool
 from .tools.onchain import OnChainTool
 from .tools.swap import SwapTool
+from .tools.actions import ActionTool
+from .tools.portfolio import PortfolioTool
 
 
 app = Server("crypto-mcp-server")
@@ -30,6 +34,8 @@ wallet_tool = WalletTool()
 defi_tool = DeFiTool()
 onchain_tool = OnChainTool()
 swap_tool = SwapTool()
+action_tool = ActionTool()
+portfolio_tool = PortfolioTool(wallet_tool=wallet_tool)
 
 
 TOOLS = [
@@ -253,6 +259,185 @@ TOOLS = [
             "required": ["from_token", "to_token", "amount"],
         },
     ),
+    # --- Action Tools (Phase 2: On-chain Execution) ---
+    Tool(
+        name="swap_execute",
+        description=(
+            "Execute a token swap on a DEX. Builds and sends the transaction via ParaSwap. "
+            "Requires WALLET_PRIVATE_KEY env var. A fee (default 0.1%) is applied to swaps. "
+            "Safety: max $10k per tx (configurable), 1% slippage protection, gas price sanity checks."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "from_token": {
+                    "type": "string",
+                    "description": "Token to sell (symbol like 'ETH', 'USDC' or contract address)",
+                },
+                "to_token": {
+                    "type": "string",
+                    "description": "Token to buy (symbol or contract address)",
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Amount of from_token to swap",
+                },
+                "chain": {
+                    "type": "string",
+                    "description": "Chain: 'ethereum', 'arbitrum', 'base', 'polygon'",
+                    "default": "ethereum",
+                },
+                "slippage_bps": {
+                    "type": "integer",
+                    "description": "Slippage tolerance in basis points (100 = 1%). Default: 100",
+                    "default": 100,
+                },
+                "fee_bps": {
+                    "type": "integer",
+                    "description": "Fee in basis points (10 = 0.1%). Default from FEE_BPS env or 10",
+                },
+            },
+            "required": ["from_token", "to_token", "amount"],
+        },
+    ),
+    Tool(
+        name="token_transfer",
+        description=(
+            "Send tokens (ETH, ERC-20) to an address. Requires WALLET_PRIVATE_KEY env var. "
+            "Safety: max $10k per tx (configurable), gas price sanity checks."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string",
+                    "description": "Token to send (symbol like 'ETH', 'USDC' or contract address)",
+                },
+                "to_address": {
+                    "type": "string",
+                    "description": "Recipient wallet address (0x...)",
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Amount to send",
+                },
+                "chain": {
+                    "type": "string",
+                    "description": "Chain: 'ethereum', 'arbitrum', 'base', 'polygon'",
+                    "default": "ethereum",
+                },
+            },
+            "required": ["token", "to_address", "amount"],
+        },
+    ),
+    Tool(
+        name="token_approve",
+        description=(
+            "Approve a contract to spend tokens on your behalf. Required before swaps/DeFi interactions. "
+            "If amount is omitted, grants unlimited approval. Requires WALLET_PRIVATE_KEY env var."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string",
+                    "description": "Token to approve (symbol or contract address)",
+                },
+                "spender": {
+                    "type": "string",
+                    "description": "Contract address to approve as spender (0x...)",
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Amount to approve. Omit for unlimited approval.",
+                },
+                "chain": {
+                    "type": "string",
+                    "description": "Chain: 'ethereum', 'arbitrum', 'base', 'polygon'",
+                    "default": "ethereum",
+                },
+            },
+            "required": ["token", "spender"],
+        },
+    ),
+    Tool(
+        name="wrap_eth",
+        description=(
+            "Wrap ETH to WETH or unwrap WETH to ETH. WETH is needed for many DeFi interactions. "
+            "Requires WALLET_PRIVATE_KEY env var."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "description": "Amount of ETH to wrap/unwrap",
+                },
+                "direction": {
+                    "type": "string",
+                    "description": "'wrap' (ETH->WETH) or 'unwrap' (WETH->ETH). Default: 'wrap'",
+                    "default": "wrap",
+                    "enum": ["wrap", "unwrap"],
+                },
+                "chain": {
+                    "type": "string",
+                    "description": "Chain: 'ethereum', 'arbitrum', 'base', 'polygon'",
+                    "default": "ethereum",
+                },
+            },
+            "required": ["amount"],
+        },
+    ),
+    # --- Portfolio Tools ---
+    Tool(
+        name="portfolio_summary",
+        description=(
+            "Get a complete portfolio overview for a wallet across all supported chains. "
+            "Shows total value, per-chain breakdown, token allocation percentages, and top holdings."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "description": "Wallet address (0x...)",
+                },
+                "chains": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Chains to scan (default: all supported). E.g., ['ethereum', 'arbitrum']",
+                },
+            },
+            "required": ["address"],
+        },
+    ),
+    Tool(
+        name="portfolio_history",
+        description=(
+            "Track portfolio value and activity over time for a wallet. "
+            "Shows current value, transaction activity, net flows, and top holdings."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string",
+                    "description": "Wallet address (0x...)",
+                },
+                "days": {
+                    "type": "integer",
+                    "description": "Number of days to look back. Default: 30",
+                    "default": 30,
+                },
+                "chain": {
+                    "type": "string",
+                    "description": "Chain to analyze. Default: 'ethereum'",
+                    "default": "ethereum",
+                },
+            },
+            "required": ["address"],
+        },
+    ),
 ]
 
 
@@ -338,6 +523,50 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 arguments["to_token"],
                 arguments["amount"],
                 arguments.get("chain", "ethereum"),
+            )
+
+        # Action tools (Phase 2)
+        elif name == "swap_execute":
+            result = await action_tool.swap_execute(
+                arguments["from_token"],
+                arguments["to_token"],
+                arguments["amount"],
+                chain=arguments.get("chain", "ethereum"),
+                slippage_bps=arguments.get("slippage_bps", 100),
+                fee_bps=arguments.get("fee_bps"),
+            )
+        elif name == "token_transfer":
+            result = await action_tool.token_transfer(
+                arguments["token"],
+                arguments["to_address"],
+                arguments["amount"],
+                chain=arguments.get("chain", "ethereum"),
+            )
+        elif name == "token_approve":
+            result = await action_tool.token_approve(
+                arguments["token"],
+                arguments["spender"],
+                amount=arguments.get("amount"),
+                chain=arguments.get("chain", "ethereum"),
+            )
+        elif name == "wrap_eth":
+            result = await action_tool.wrap_eth(
+                arguments["amount"],
+                direction=arguments.get("direction", "wrap"),
+                chain=arguments.get("chain", "ethereum"),
+            )
+
+        # Portfolio tools
+        elif name == "portfolio_summary":
+            result = await portfolio_tool.portfolio_summary(
+                arguments["address"],
+                chains=arguments.get("chains"),
+            )
+        elif name == "portfolio_history":
+            result = await portfolio_tool.portfolio_history(
+                arguments["address"],
+                days=arguments.get("days", 30),
+                chain=arguments.get("chain", "ethereum"),
             )
         else:
             result = {"error": f"Unknown tool: {name}"}

@@ -16,8 +16,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-web3 = ["web3>=7.0.0"]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+actions = ["web3>=7.0.0"]
+full = ["web3>=7.0.0"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "web3>=7.0.0"]
 
 [project.scripts]
 crypto-mcp = "src.server:main"
