@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCP Developer for Hire — Custom AI Tool Servers</title>
+  <meta name="description" content="Freelance MCP developer building custom Model Context Protocol servers that connect AI agents to any API or service.">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0f1117;
+      --bg-card: #181a24;
+      --bg-card-hover: #1e2130;
+      --text: #e4e5ea;
+      --text-dim: #9395a0;
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.25);
+      --accent-light: #818cf8;
+      --green: #34d399;
+      --radius: 12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ---- NAV ---- */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      background: rgba(15, 17, 23, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+      padding: 0 24px;
+    }
+    .nav-inner {
+      max-width: 1080px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .nav-logo {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--accent-light);
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+    .nav-links { display: flex; gap: 28px; list-style: none; }
+    .nav-links a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--text); }
+
+    /* ---- SECTION DEFAULTS ---- */
+    section { padding: 100px 24px; }
+    .container { max-width: 1080px; margin: 0 auto; }
+    .section-label {
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+    .section-title {
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 16px;
+    }
+    .section-sub {
+      color: var(--text-dim);
+      max-width: 560px;
+      font-size: 1.05rem;
+      margin-bottom: 48px;
+    }
+
+    /* ---- HERO ---- */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding-top: 60px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      top: -100px; left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      animation: pulseGlow 6s ease-in-out infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
+      50% { opacity: 0.8; transform: translateX(-50%) scale(1.15); }
+    }
+    .hero-content { position: relative; z-index: 1; }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      color: var(--accent-light);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 6px 16px;
+      border-radius: 999px;
+      margin-bottom: 28px;
+      animation: fadeInUp 0.6s ease both;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 6vw, 3.8rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      animation: fadeInUp 0.6s 0.15s ease both;
+    }
+    .hero h1 .highlight { color: var(--accent-light); }
+    .hero-tagline {
+      font-size: clamp(1rem, 2.5vw, 1.25rem);
+      color: var(--text-dim);
+      max-width: 540px;
+      margin: 0 auto 36px;
+      animation: fadeInUp 0.6s 0.3s ease both;
+    }
+    .hero-cta {
+      display: inline-flex; gap: 14px;
+      flex-wrap: wrap; justify-content: center;
+      animation: fadeInUp 0.6s 0.45s ease both;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ---- BUTTONS ---- */
+    .btn {
+      display: inline-block;
+      padding: 13px 28px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+    .btn-primary:hover { background: var(--accent-light); box-shadow: 0 6px 28px var(--accent-glow); }
+    .btn-outline {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent-light); }
+
+    /* ---- SERVICES ---- */
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+    .service-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--radius);
+      padding: 36px 28px;
+      transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+      position: relative;
+    }
+    .service-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+    }
+    .service-card.featured {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 8px 32px var(--accent-glow);
+    }
+    .service-card.featured .popular-tag {
+      position: absolute;
+      top: -11px; right: 24px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 4px 12px;
+      border-radius: 6px;
+    }
+    .service-tier {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .service-price {
+      font-size: 2.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 6px;
+    }
+    .service-price span { font-size: 1rem; color: var(--text-dim); font-weight: 400; }
+    .service-desc {
+      color: var(--text-dim);
+      font-size: 0.95rem;
+      margin-bottom: 20px;
+    }
+    .service-features { list-style: none; }
+    .service-features li {
+      padding: 6px 0;
+      font-size: 0.9rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .service-features li::before {
+      content: "\2713";
+      color: var(--green);
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* ---- PORTFOLIO ---- */
+    .portfolio-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      transition: border-color 0.3s;
+    }
+    .portfolio-card:hover { border-color: rgba(99, 102, 241, 0.3); }
+    .portfolio-info { padding: 40px 36px; }
+    .portfolio-info h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+    .portfolio-info p { color: var(--text-dim); margin-bottom: 20px; font-size: 0.95rem; }
+    .portfolio-stats {
+      display: flex;
+      gap: 28px;
+      margin-bottom: 24px;
+    }
+    .stat-item strong {
+      display: block;
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--accent-light);
+    }
+    .stat-item span {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .portfolio-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+    .tag {
+      background: rgba(99, 102, 241, 0.1);
+      color: var(--accent-light);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 6px;
+    }
+    .portfolio-visual {
+      background: linear-gradient(135deg, #1a1c2e 0%, #13141f 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    .terminal-mock {
+      width: 100%;
+      max-width: 380px;
+      background: #0d0e16;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      overflow: hidden;
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      font-size: 0.78rem;
+      line-height: 1.7;
+    }
+    .terminal-bar {
+      background: rgba(255,255,255,0.04);
+      padding: 10px 14px;
+      display: flex;
+      gap: 6px;
+    }
+    .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .terminal-dot:nth-child(1) { background: #ff5f57; }
+    .terminal-dot:nth-child(2) { background: #ffbd2e; }
+    .terminal-dot:nth-child(3) { background: #28c840; }
+    .terminal-body { padding: 16px; color: var(--text-dim); }
+    .terminal-body .cmd { color: var(--green); }
+    .terminal-body .comment { color: #555; }
+    .terminal-body .output { color: var(--accent-light); }
+
+    /* ---- TECH ---- */
+    .tech-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+    .tech-pill {
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.06);
+      padding: 14px 24px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: border-color 0.3s, transform 0.2s;
+    }
+    .tech-pill:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+    /* ---- HOW IT WORKS ---- */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+    }
+    .step-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--radius);
+      padding: 36px 28px;
+      text-align: center;
+      position: relative;
+      transition: border-color 0.3s, transform 0.3s;
+    }
+    .step-card:hover { border-color: var(--accent); transform: translateY(-4px); }
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: rgba(99, 102, 241, 0.12);
+      color: var(--accent-light);
+      font-weight: 800;
+      font-size: 1.1rem;
+      margin-bottom: 18px;
+    }
+    .step-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+    .step-card p { color: var(--text-dim); font-size: 0.92rem; }
+    .step-connector {
+      display: none; /* shown on larger screens via grid, conceptual */
+    }
+
+    /* ---- CTA / CONTACT ---- */
+    .cta-section {
+      background: linear-gradient(180deg, var(--bg) 0%, #12131e 100%);
+      text-align: center;
+    }
+    .cta-section .section-sub { margin-left: auto; margin-right: auto; }
+    .contact-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      justify-content: center;
+      margin-top: 36px;
+    }
+    .contact-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 24px;
+      background: var(--bg-card);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: border-color 0.3s, transform 0.2s;
+    }
+    .contact-link:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .contact-icon { font-size: 1.1rem; }
+
+    /* ---- FOOTER ---- */
+    footer {
+      text-align: center;
+      padding: 40px 24px;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* ---- RESPONSIVE ---- */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      section { padding: 72px 20px; }
+      .portfolio-card { grid-template-columns: 1fr; }
+      .portfolio-visual { min-height: 280px; }
+      .portfolio-info { padding: 28px 24px; }
+      .portfolio-stats { gap: 20px; }
+    }
+
+    /* ---- SCROLL REVEAL (CSS-only via animation-timeline fallback) ---- */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      animation: revealIn 0.7s ease forwards;
+    }
+    .reveal.d1 { animation-delay: 0.1s; }
+    .reveal.d2 { animation-delay: 0.2s; }
+    .reveal.d3 { animation-delay: 0.3s; }
+    @keyframes revealIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <a href="#" class="nav-logo">&lt;/MCP&gt; Dev</a>
+    <ul class="nav-links">
+      <li><a href="#services">Services</a></li>
+      <li><a href="#portfolio">Portfolio</a></li>
+      <li><a href="#how-it-works">Process</a></li>
+      <li><a href="#contact">Hire Me</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="hero">
+  <div class="hero-content">
+    <div class="hero-badge">Available for freelance work</div>
+    <h1>I Build <span class="highlight">MCP Servers</span><br>for AI Agents</h1>
+    <p class="hero-tagline">
+      I connect AI assistants like Claude and GPT to any API, database, or service
+      using the Model Context Protocol. Your AI gets real tools &mdash; not just prompts.
+    </p>
+    <div class="hero-cta">
+      <a href="#contact" class="btn btn-primary">Get a Quote</a>
+      <a href="#portfolio" class="btn btn-outline">See My Work</a>
+    </div>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section id="services">
+  <div class="container">
+    <p class="section-label reveal">Services</p>
+    <h2 class="section-title reveal d1">What I Build for You</h2>
+    <p class="section-sub reveal d2">Custom MCP servers that give AI agents superpowers &mdash; from simple API wrappers to full multi-service workflows.</p>
+    <div class="services-grid">
+      <div class="service-card reveal d1">
+        <div class="service-tier">Basic</div>
+        <div class="service-price">$50 <span>/ project</span></div>
+        <p class="service-desc">Customize an existing MCP server to fit your specific needs.</p>
+        <ul class="service-features">
+          <li>Fork &amp; tailor an open-source MCP server</li>
+          <li>Add or remove tools to match your workflow</li>
+          <li>Configuration &amp; environment setup</li>
+          <li>Documentation &amp; usage guide</li>
+          <li>1 revision round included</li>
+        </ul>
+      </div>
+      <div class="service-card featured reveal d2">
+        <div class="popular-tag">Most Popular</div>
+        <div class="service-tier">Standard</div>
+        <div class="service-price">$150 <span>/ project</span></div>
+        <p class="service-desc">A brand-new MCP server wrapping any REST or GraphQL API.</p>
+        <ul class="service-features">
+          <li>Custom MCP server from scratch</li>
+          <li>Full API integration (REST, GraphQL, WebSocket)</li>
+          <li>Typed tool schemas &amp; error handling</li>
+          <li>Auth flows (API keys, OAuth, JWT)</li>
+          <li>Async support &amp; rate limiting</li>
+          <li>2 revision rounds included</li>
+        </ul>
+      </div>
+      <div class="service-card reveal d3">
+        <div class="service-tier">Premium</div>
+        <div class="service-price">$500 <span>/ project</span></div>
+        <p class="service-desc">Multi-API orchestration with agent workflow design.</p>
+        <ul class="service-features">
+          <li>Multiple API integrations in one server</li>
+          <li>Agent workflow &amp; tool-chaining design</li>
+          <li>Resource &amp; prompt template authoring</li>
+          <li>Caching, retries &amp; resilience patterns</li>
+          <li>Deployment guide (Docker / cloud)</li>
+          <li>Unlimited revisions for 30 days</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PORTFOLIO -->
+<section id="portfolio" style="background: linear-gradient(180deg, var(--bg) 0%, #111320 100%);">
+  <div class="container">
+    <p class="section-label reveal">Portfolio</p>
+    <h2 class="section-title reveal d1">Shipped &amp; Open-Source</h2>
+    <p class="section-sub reveal d2">Real MCP servers, used in production. Here's what I've built.</p>
+    <div class="portfolio-card reveal d3">
+      <div class="portfolio-info">
+        <h3>Crypto MCP Server</h3>
+        <p>A comprehensive MCP server for on-chain crypto operations. Supports wallet management, token transfers, swaps, bridging, ENS resolution, and portfolio tracking across EVM-compatible blockchains.</p>
+        <div class="portfolio-stats">
+          <div class="stat-item">
+            <strong>23</strong>
+            <span>Tools</span>
+          </div>
+          <div class="stat-item">
+            <strong>5</strong>
+            <span>EVM Chains</span>
+          </div>
+          <div class="stat-item">
+            <strong>MCP</strong>
+            <span>Protocol</span>
+          </div>
+        </div>
+        <div class="portfolio-tags">
+          <span class="tag">Python</span>
+          <span class="tag">MCP SDK</span>
+          <span class="tag">web3.py</span>
+          <span class="tag">Ethereum</span>
+          <span class="tag">DeFi</span>
+          <span class="tag">Async</span>
+        </div>
+        <a href="https://github.com/apex-500/crypto-mcp-server" target="_blank" rel="noopener" class="btn btn-outline">View on GitHub &rarr;</a>
+      </div>
+      <div class="portfolio-visual">
+        <div class="terminal-mock">
+          <div class="terminal-bar">
+            <div class="terminal-dot"></div>
+            <div class="terminal-dot"></div>
+            <div class="terminal-dot"></div>
+          </div>
+          <div class="terminal-body">
+            <div class="comment"># Claude calls crypto-mcp-server</div>
+            <br>
+            <div><span class="cmd">get_wallet_balance</span></div>
+            <div class="output">&nbsp; &rarr; 2.847 ETH ($7,412.20)</div>
+            <br>
+            <div><span class="cmd">get_token_price</span> AAVE</div>
+            <div class="output">&nbsp; &rarr; $284.50 (+5.2% 24h)</div>
+            <br>
+            <div><span class="cmd">swap_tokens</span> ETH &rarr; USDC</div>
+            <div class="output">&nbsp; &rarr; Swapped 0.5 ETH for 1,302 USDC</div>
+            <br>
+            <div><span class="cmd">resolve_ens</span> vitalik.eth</div>
+            <div class="output">&nbsp; &rarr; 0xd8dA...6045</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section id="tech">
+  <div class="container">
+    <p class="section-label reveal">Tech Stack</p>
+    <h2 class="section-title reveal d1">Tools of the Trade</h2>
+    <p class="section-sub reveal d2">Battle-tested technologies for building reliable, performant MCP servers.</p>
+    <div class="tech-grid reveal d3">
+      <div class="tech-pill">Python</div>
+      <div class="tech-pill">MCP SDK</div>
+      <div class="tech-pill">web3.py</div>
+      <div class="tech-pill">REST APIs</div>
+      <div class="tech-pill">GraphQL</div>
+      <div class="tech-pill">Async / asyncio</div>
+      <div class="tech-pill">FastAPI</div>
+      <div class="tech-pill">Docker</div>
+      <div class="tech-pill">WebSockets</div>
+      <div class="tech-pill">OAuth 2.0</div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how-it-works" style="background: linear-gradient(180deg, var(--bg) 0%, #111320 100%);">
+  <div class="container">
+    <p class="section-label reveal">Process</p>
+    <h2 class="section-title reveal d1">How It Works</h2>
+    <p class="section-sub reveal d2">From idea to working MCP server in as little as one day.</p>
+    <div class="steps">
+      <div class="step-card reveal d1">
+        <div class="step-num">1</div>
+        <h3>You Describe What You Need</h3>
+        <p>Tell me which APIs, services, or data sources you want your AI to access. I'll scope the project and send a clear quote.</p>
+      </div>
+      <div class="step-card reveal d2">
+        <div class="step-num">2</div>
+        <h3>I Build It in 1&ndash;3 Days</h3>
+        <p>I develop, test, and document your custom MCP server. You get progress updates and can request changes along the way.</p>
+      </div>
+      <div class="step-card reveal d3">
+        <div class="step-num">3</div>
+        <h3>You Connect to Claude / GPT</h3>
+        <p>Drop the server into your AI setup. I include a setup guide and help you get it running. Your AI now has real tools.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT / CTA -->
+<section class="cta-section" id="contact">
+  <div class="container">
+    <p class="section-label reveal">Let's Work Together</p>
+    <h2 class="section-title reveal d1">Ready to Give Your AI<br>Real Superpowers?</h2>
+    <p class="section-sub reveal d2">Reach out on any platform. I typically respond within a few hours.</p>
+    <div class="contact-links reveal d3">
+      <a href="[FIVERR_URL]" target="_blank" rel="noopener" class="contact-link">
+        <span class="contact-icon">&#9733;</span> Fiverr
+      </a>
+      <a href="[UPWORK_URL]" target="_blank" rel="noopener" class="contact-link">
+        <span class="contact-icon">&#9650;</span> Upwork
+      </a>
+      <a href="[TWITTER_URL]" target="_blank" rel="noopener" class="contact-link">
+        <span class="contact-icon">&#120143;</span> Twitter / DM
+      </a>
+      <a href="mailto:hello@example.com" class="contact-link">
+        <span class="contact-icon">&#9993;</span> Email
+      </a>
+      <a href="https://github.com/apex-500" target="_blank" rel="noopener" class="contact-link">
+        <span class="contact-icon">&#128736;</span> GitHub
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <p>&copy; 2026 MCP Dev. Built with craft, not frameworks.</p>
+  </div>
+</footer>
+
+</body>
+</html>
